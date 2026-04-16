@@ -15,6 +15,6 @@ namespace ams::ums {
             Result MountExternalFile(const sf::InPath &path);
             Result UnmountExternalFile();
     };
-    static_assert(sf::IsInterface<UmsControlService>);
+    static_assert(sf::IsIInterface<UmsControlService>);
 
 }

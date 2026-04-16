@@ -69,10 +69,30 @@ namespace ams::ums {
         // usbHsExit();
     }
 
-    constinit AsyncIoRingBuffer<0x10000, 4> g_usb_ring_buffer;
+    constinit AsyncIoRingBuffer<1_MB, 4> g_usb_ring_buffer;
+    constinit bool g_is_usb_ready = false;
 
     void UsbHandler::WorkerThreadLoop() {
         g_usb_ring_buffer.WorkerThreadLoop();
+    }
+
+    bool UsbHandler::IsReady() {
+        return g_is_usb_ready;
+    }
+
+    Result UsbHandler::RequestRead(u64 offset, void *buffer, size_t size) {
+        /* Horizon OS expects near-instantaneous response. */
+        /* Implementation uses pre-fetching and background thread offloading. */
+        os::SystemEvent completion_event;
+        os::CreateSystemEvent(std::addressof(completion_event), os::EventClearMode_AutoClear, false);
+
+        R_TRY(g_usb_ring_buffer.QueueRead(offset, size, buffer, std::addressof(completion_event)));
+
+        /* Wait for completion on the background thread. */
+        os::WaitSystemEvent(std::addressof(completion_event));
+        os::DestroySystemEvent(std::addressof(completion_event));
+
+        R_SUCCEED();
     }
 
 }

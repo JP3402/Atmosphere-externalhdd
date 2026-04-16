@@ -8,6 +8,9 @@ namespace ams::ums {
             static Result Initialize();
             static void Finalize();
             static void WorkerThreadLoop();
+            static bool IsReady();
+
+            static Result RequestRead(u64 offset, void *buffer, size_t size);
     };
 
 }

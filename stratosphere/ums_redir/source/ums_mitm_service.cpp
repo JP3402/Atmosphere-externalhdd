@@ -18,7 +18,12 @@ namespace ams::ums::mitm {
     Result UmsFsMitmService::OpenDeviceOperator(sf::Out<sf::SharedPointer<fssrv::sf::IDeviceOperator>> out) {
         /* Intercept DeviceOperator to simulate GameCard presence. */
         if (VirtualGameCard::IsRedirectionActive()) {
-            out.SetValue(sf::CreateSharedObjectEmplaced<fssrv::sf::IDeviceOperator, UmsDeviceOperatorService>(m_forward_service));
+            /* Open the real device operator from the forward service. */
+            sf::SharedPointer<fssrv::sf::IDeviceOperator> forward_device_operator;
+            R_ABORT_UNLESS(m_forward_service->OpenDeviceOperator(std::addressof(forward_device_operator)));
+
+            /* Return our MitM wrapper. */
+            out.SetValue(sf::CreateSharedObjectEmplaced<fssrv::sf::IDeviceOperator, UmsDeviceOperatorService>(forward_device_operator));
             R_SUCCEED();
         }
 
@@ -37,7 +42,7 @@ namespace ams::ums::mitm {
 
     Result UmsDeviceOperatorService::GetGameCardHandle(sf::Out<u32> out) {
         if (VirtualGameCard::IsRedirectionActive()) {
-            out.SetValue(0xDEADBEEF); /* Simulated handle. */
+            out.SetValue(VirtualGameCard::GetSpoofedHandle());
             R_SUCCEED();
         }
         R_RETURN(sm::mitm::ResultShouldForwardToSession());

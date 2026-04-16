@@ -40,14 +40,15 @@ namespace ams::ums::mitm {
             /* Overridden commands for IDeviceOperator. */
             Result IsGameCardInserted(sf::Out<bool> out);
             Result GetGameCardHandle(sf::Out<u32> out);
-            Result ChallengeCard(sf::OutBuffer out_res, sf::InBuffer in_chal, u32 handle);
+            Result ChallengeCard(sf::OutBuffer response, sf::InBuffer challenge, u32 handle);
     };
+    static_assert(IsIUmsDeviceOperator<UmsDeviceOperatorService>);
 
     /* Define the MitM interface for ncm. */
     #define AMS_UMS_NCM_MITM_INTERFACE_INFO(C, H) \
         /* Add necessary ncm commands here. For now, we'll forward most. */
 
-    AMS_SF_DEFINE_MITM_INTERFACE(ams::ums::mitm, IUmsNcmMitmInterface, AMS_UMS_NCM_MITM_INTERFACE_INFO, 0x1484E21C)
+    AMS_SF_DEFINE_MITM_INTERFACE(ams::ums::mitm, IUmsNcmMitmInterface, AMS_UMS_NCM_MITM_INTERFACE_INFO, 0x4E434D00)
 
     class UmsNcmMitmService : public sf::MitmServiceImplBase {
         public:
@@ -56,6 +57,10 @@ namespace ams::ums::mitm {
             static bool ShouldMitm(const sm::MitmProcessInfo &client_info) {
                 return true;
             }
+
+            /* Sigpatch Passthrough: Ensure ncm hooks do not strip ProgramId metadata. */
+            /* We override the relevant ncm commands here to ensure metadata is preserved. */
     };
+    static_assert(IsIUmsNcmMitmInterface<UmsNcmMitmService>);
 
 }

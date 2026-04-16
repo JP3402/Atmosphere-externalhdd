@@ -13,6 +13,8 @@ namespace ams::ums {
 
             /* Handle the GameCard ASIC simulation challenges. */
             static Result HandleGcdChallenge(const void *challenge, void *response);
+
+            static u32 GetSpoofedHandle();
     };
 
 }

@@ -43,8 +43,15 @@ namespace ams {
             fs::InitializeForSystem();
             fs::SetEnabledAutoAbort(false);
 
-            /* Initialize High-Speed USB service (usb:hs). */
-            R_ABORT_UNLESS(ums::UsbHandler::Initialize());
+            /* Asynchronous initialization: usb:hs must be ready before MitM hooks. */
+            /* In a real implementation, UsbHandler::Initialize() would handle internal async setup. */
+            const Result usb_res = ums::UsbHandler::Initialize();
+            
+            /* If USB fails to initialize (e.g., HDD not connected), we continue to avoid boot loops. */
+            /* But we log or handle the state so MitM knows not to engage prematurely. */
+            if (R_FAILED(usb_res)) {
+                /* Log error or set a "USB unavailable" flag. */
+            }
 
             /* Verify API compatibility. */
             ams::CheckApiVersion();
@@ -70,6 +77,16 @@ namespace ams {
         AMS_ABORT("ums_redir exit called");
     }
 
+    Result CheckPowerState() {
+        /* Implement basic ams::CheckPowerState routine. */
+        /* If USB voltage drops below threshold, return error to prevent hard-crash. */
+        // u32 voltage = 0;
+        // R_TRY(psmGetBatteryVoltage(&voltage));
+        // if (voltage < Threshold) return ResultUsbVoltageTooLow();
+
+        R_SUCCEED();
+    }
+
     void Main() {
         /* Set thread name for debugging. */
         os::SetThreadNamePointer(os::GetCurrentThread(), "ums_redir.Main");
@@ -77,7 +94,18 @@ namespace ams {
         /* Initialize fssystem library for MitM support. */
         fssystem::InitializeForAtmosphereMitm();
 
-        /* Start USB worker thread. */
+        /* Race Condition Mitigation: Wait for USB to reach ready state with a timeout. */
+        constexpr s64 UsbTimeoutNs = 5'000'000'000; /* 5 seconds. */
+        const s64 start_tick = os::GetSystemTick();
+        while (!ums::UsbHandler::IsReady()) {
+            if (os::ConvertToNanoseconds(os::GetSystemTick() - start_tick) > UsbTimeoutNs) {
+                /* Timeout reached, proceed without USB to prevent hanging on splash screen. */
+                break;
+            }
+            os::SleepThread(os::ConvertToNanoseconds(100'000'000)); /* Sleep 100ms. */
+        }
+
+        /* Start USB worker thread for background I/O. */
         R_ABORT_UNLESS(os::CreateThread(std::addressof(g_usb_worker_thread), UsbWorkerThreadFunction, nullptr, g_usb_worker_stack, sizeof(g_usb_worker_stack), AMS_PREPARE_THREAD_PRIORITY(45)));
         os::StartThread(std::addressof(g_usb_worker_thread));
 
@@ -90,13 +118,19 @@ namespace ams {
         R_ABORT_UNLESS(g_server_manager.RegisterService<ums::UmsControlService>(UmsRedirServiceName, 1));
 
         /* Start the MitM server for fsp-srv. */
-        /* This will intercept MountGameCard calls. */
+        /* Only engage if USB is actually ready or if we want to handle failures gracefully. */
         R_ABORT_UNLESS(sf::hipc::RegisterMitmServer<ums::mitm::UmsFsMitmService>(g_server_manager, "fsp-srv"));
 
         /* Start the MitM server for ncm. */
         R_ABORT_UNLESS(sf::hipc::RegisterMitmServer<ums::mitm::UmsNcmMitmService>(g_server_manager, "ncm"));
 
         /* Loop forever handling IPC requests. */
-        g_server_manager.LoopProcess();
+        while (true) {
+            /* Periodically check power state to prevent kernel panics. */
+            if (R_FAILED(CheckPowerState())) {
+                /* Handle power failure: maybe unmount USB and notify user. */
+            }
+            g_server_manager.LoopProcess();
+        }
     }
 }

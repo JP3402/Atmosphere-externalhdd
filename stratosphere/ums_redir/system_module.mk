@@ -1,4 +1,9 @@
 #---------------------------------------------------------------------------------
+# size optimization: Horizon sysmodules are extremely memory-constrained.
+#---------------------------------------------------------------------------------
+ATMOSPHERE_OPTIMIZATION_FLAG := -Os
+
+#---------------------------------------------------------------------------------
 # pull in common stratosphere sysmodule configuration
 #---------------------------------------------------------------------------------
 THIS_MAKEFILE := $(abspath $(lastword $(MAKEFILE_LIST)))
