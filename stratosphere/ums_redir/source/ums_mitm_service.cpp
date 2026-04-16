@@ -8,6 +8,10 @@ namespace ams::ums::mitm {
     Result UmsFsMitmService::OpenGameCardFileSystem(sf::Out<sf::SharedPointer<fssrv::sf::IFileSystem>> out, u32 handle, u32 partition) {
         /* Check if we have an active redirection. */
         if (VirtualGameCard::IsRedirectionActive()) {
+            /* Error Handling: If USB is disconnected, return ResultFsTargetNotFound (0x2504). */
+            if (!ums::UsbHandler::IsReady()) {
+                R_THROW(fs::ResultTargetNotFound());
+            }
             R_RETURN(VirtualGameCard::OpenRedirectionFileSystem(out));
         }
 
@@ -34,7 +38,8 @@ namespace ams::ums::mitm {
 
     Result UmsDeviceOperatorService::IsGameCardInserted(sf::Out<bool> out) {
         if (VirtualGameCard::IsRedirectionActive()) {
-            out.SetValue(true);
+            /* Return false if USB is disconnected mid-game. */
+            out.SetValue(ums::UsbHandler::IsReady());
             R_SUCCEED();
         }
         R_RETURN(sm::mitm::ResultShouldForwardToSession());

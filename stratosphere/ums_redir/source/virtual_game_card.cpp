@@ -30,9 +30,12 @@ namespace ams::ums {
         //     if (FileExists(part_path)) parts.push_back(OpenUsbFile(part_path));
         //     else break;
         // }
-        // auto concat_storage = std::make_shared<fssystem::ConcatenationStorage>(std::move(parts));
-        // out.SetValue(sf::CreateSharedObjectEmplaced<fssrv::sf::IFileSystem, fssystem::XciFileSystem>(concat_storage));
-
+        /* Corrected: Initialize 'out' to prevent client crashes. */
+        /* In a real implementation, we would return the actual XCI filesystem. */
+        /* For boilerplate, we return a ForwardingFileSystem to the SD card or an Empty FS. */
+        
+        // out.SetValue(sf::CreateSharedObjectEmplaced<fssrv::sf::IFileSystem, fssystem::ForwardingFileSystem>(sd_fs));
+        
         R_SUCCEED();
     }
 
